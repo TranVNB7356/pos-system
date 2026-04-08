@@ -1,7 +1,6 @@
-import psycopg2
-import psycopg2.extras
+import sqlite3
 import os
-from urllib.parse import urlparse
+from datetime import datetime
 
 class Database:
     def __init__(self):
@@ -10,26 +9,12 @@ class Database:
 
     def connect(self):
         try:
-            database_url = os.environ.get('DATABASE_URL')
-            if database_url:
-                result = urlparse(database_url)
-                self.connection = psycopg2.connect(
-                    database=result.path[1:],
-                    user=result.username,
-                    password=result.password,
-                    host=result.hostname,
-                    port=result.port
-                )
-            else:
-                # Local development - sửa password theo máy bạn
-                self.connection = psycopg2.connect(
-                    host='localhost',
-                    database='pos_db',
-                    user='postgres',
-                    password='123456'  # Thay bằng mật khẩu PostgreSQL của bạn
-                )
-            
-            print("✅ Kết nối database thành công!")
+            # Dùng SQLite, file sẽ được lưu trong thư mục /tmp trên Render
+            # Hoặc dùng đường dẫn tương đối
+            db_path = os.environ.get('DATABASE_PATH', 'pos.db')
+            self.connection = sqlite3.connect(db_path)
+            self.connection.row_factory = sqlite3.Row
+            print(f"✅ Kết nối SQLite thành công! DB: {db_path}")
             self.create_tables()
         except Exception as e:
             print(f"❌ Lỗi kết nối database: {e}")
@@ -40,7 +25,7 @@ class Database:
         # Bảng sản phẩm
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS products (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(255) NOT NULL,
                 price DECIMAL(15,0) NOT NULL,
                 cost_price DECIMAL(15,0) DEFAULT 0,
@@ -54,7 +39,7 @@ class Database:
         # Bảng khách hàng
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS customers (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(255) NOT NULL,
                 phone VARCHAR(20),
                 email VARCHAR(255),
@@ -68,7 +53,7 @@ class Database:
         # Bảng đơn hàng
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS orders (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 order_number VARCHAR(50) UNIQUE NOT NULL,
                 customer_id INTEGER REFERENCES customers(id),
                 total_amount DECIMAL(15,0) NOT NULL,
@@ -82,7 +67,7 @@ class Database:
         # Bảng chi tiết đơn hàng
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS order_items (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 order_id INTEGER REFERENCES orders(id),
                 product_id INTEGER REFERENCES products(id),
                 quantity INTEGER NOT NULL,
@@ -107,4 +92,72 @@ class Database:
                 ('Cà phê sữa', 20000, 10000, 100, 'Đồ uống', 'SP002'),
                 ('Bánh mì thịt', 25000, 15000, 50, 'Đồ ăn', 'SP003'),
                 ('Trà đào', 30000, 18000, 80, 'Đồ uống', 'SP004'),
-                ('Nước ép cam
+                ('Nước ép cam', 35000, 20000, 60, 'Đồ uống', 'SP005'),
+            ]
+            for p in sample_products:
+                cursor.execute("""
+                    INSERT INTO products (name, price, cost_price, stock, category, barcode)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, p)
+        
+        # Thêm khách hàng mẫu
+        cursor.execute("SELECT COUNT(*) FROM customers")
+        if cursor.fetchone()[0] == 0:
+            sample_customers = [
+                ('Nguyễn Văn A', '0987654321', 'a@gmail.com', 'Hà Nội'),
+                ('Trần Thị B', '0978123456', 'b@gmail.com', 'TP HCM'),
+                ('Lê Văn C', '0965111222', 'c@gmail.com', 'Đà Nẵng'),
+            ]
+            for c in sample_customers:
+                cursor.execute("""
+                    INSERT INTO customers (name, phone, email, address)
+                    VALUES (?, ?, ?, ?)
+                """, c)
+        
+        self.connection.commit()
+        cursor.close()
+
+    def execute_query(self, query, params=None):
+        cursor = self.connection.cursor()
+        try:
+            # Chuyển đổi %s thành ? cho SQLite
+            query = query.replace('%s', '?')
+            cursor.execute(query, params or ())
+            self.connection.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            print(f"Lỗi query: {e}")
+            self.connection.rollback()
+            return None
+        finally:
+            cursor.close()
+
+    def fetch_all(self, query, params=None):
+        cursor = self.connection.cursor()
+        try:
+            query = query.replace('%s', '?')
+            cursor.execute(query, params or ())
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        except Exception as e:
+            print(f"Lỗi fetch: {e}")
+            return []
+        finally:
+            cursor.close()
+
+    def fetch_one(self, query, params=None):
+        cursor = self.connection.cursor()
+        try:
+            query = query.replace('%s', '?')
+            cursor.execute(query, params or ())
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception as e:
+            print(f"Lỗi fetch: {e}")
+            return None
+        finally:
+            cursor.close()
+
+    def close(self):
+        if self.connection:
+            self.connection.close()
