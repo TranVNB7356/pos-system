@@ -1,7 +1,5 @@
-import psycopg2
-import psycopg2.extras
+import sqlite3
 import os
-from urllib.parse import urlparse
 
 class Database:
     def __init__(self):
@@ -10,107 +8,92 @@ class Database:
     
     def connect(self):
         try:
-            database_url = os.environ.get('DATABASE_URL')
-            if database_url:
-                result = urlparse(database_url)
-                self.connection = psycopg2.connect(
-                    database=result.path[1:],
-                    user=result.username,
-                    password=result.password,
-                    host=result.hostname,
-                    port=result.port
-                )
-                print("✅ Kết nối database PostgreSQL thành công!")
-                self.create_tables()
-            else:
-                raise Exception("DATABASE_URL not found")
+            # Tạo file database trong thư mục hiện tại
+            db_path = os.path.join(os.path.dirname(__file__), 'pos.db')
+            self.connection = sqlite3.connect(db_path)
+            self.connection.row_factory = sqlite3.Row
+            print("✅ Kết nối SQLite thành công!")
+            self.create_tables()
         except Exception as e:
             print(f"❌ Lỗi kết nối database: {e}")
     
     def create_tables(self):
-        cursor = self.connection.cursor()
-        
         queries = [
             """
             CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                full_name VARCHAR(255),
-                role VARCHAR(50) DEFAULT 'staff',
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                full_name TEXT,
+                role TEXT DEFAULT 'staff',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
             """
             CREATE TABLE IF NOT EXISTS categories (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
                 description TEXT
             )
             """,
             """
             CREATE TABLE IF NOT EXISTS products (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                price DECIMAL(10,0) NOT NULL,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                price REAL NOT NULL,
                 stock INTEGER DEFAULT 0,
                 category_id INTEGER,
-                barcode VARCHAR(100)
+                barcode TEXT
             )
             """,
             """
             CREATE TABLE IF NOT EXISTS orders (
-                id SERIAL PRIMARY KEY,
-                order_number VARCHAR(50) UNIQUE NOT NULL,
-                total_amount DECIMAL(10,0) NOT NULL,
-                payment_method VARCHAR(50) DEFAULT 'cash',
-                status VARCHAR(50) DEFAULT 'completed',
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_number TEXT UNIQUE NOT NULL,
+                total_amount REAL NOT NULL,
+                payment_method TEXT DEFAULT 'cash',
+                status TEXT DEFAULT 'completed',
                 created_by INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
             """
             CREATE TABLE IF NOT EXISTS order_items (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 order_id INTEGER NOT NULL,
                 product_id INTEGER NOT NULL,
                 quantity INTEGER NOT NULL,
-                price DECIMAL(10,0) NOT NULL
+                price REAL NOT NULL
             )
             """
         ]
         
         for query in queries:
-            cursor.execute(query)
+            self.execute_query(query)
         
-        self.connection.commit()
-        
-        cursor.execute("SELECT * FROM users WHERE username = 'admin'")
-        if not cursor.fetchone():
-            cursor.execute(
-                "INSERT INTO users (username, password, full_name, role) VALUES (%s, %s, %s, %s)",
+        # Thêm dữ liệu mẫu
+        admin = self.fetch_one("SELECT * FROM users WHERE username = 'admin'")
+        if not admin:
+            self.execute_query(
+                "INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)",
                 ('admin', 'admin123', 'Administrator', 'admin')
             )
         
-        cursor.execute("SELECT * FROM categories")
-        if len(cursor.fetchall()) == 0:
-            categories = ['Điện tử', 'Thời trang', 'Thực phẩm']
-            for cat in categories:
-                cursor.execute("INSERT INTO categories (name) VALUES (%s)", (cat,))
+        categories = self.fetch_all("SELECT * FROM categories")
+        if len(categories) == 0:
+            for cat in ['Điện tử', 'Thời trang', 'Thực phẩm']:
+                self.execute_query("INSERT INTO categories (name) VALUES (?)", (cat,))
         
-        cursor.execute("SELECT * FROM products")
-        if len(cursor.fetchall()) == 0:
-            cursor.execute(
-                "INSERT INTO products (name, price, stock, category_id) VALUES (%s, %s, %s, %s)",
+        products = self.fetch_all("SELECT * FROM products")
+        if len(products) == 0:
+            self.execute_query(
+                "INSERT INTO products (name, price, stock, category_id) VALUES (?, ?, ?, ?)",
                 ('Sản phẩm mẫu 1', 100000, 100, 1)
             )
-            cursor.execute(
-                "INSERT INTO products (name, price, stock, category_id) VALUES (%s, %s, %s, %s)",
+            self.execute_query(
+                "INSERT INTO products (name, price, stock, category_id) VALUES (?, ?, ?, ?)",
                 ('Sản phẩm mẫu 2', 200000, 50, 2)
             )
-        
-        self.connection.commit()
-        cursor.close()
     
     def execute_query(self, query, params=None):
         cursor = self.connection.cursor()
@@ -120,22 +103,22 @@ class Database:
             else:
                 cursor.execute(query)
             self.connection.commit()
-            return cursor.lastrowid if hasattr(cursor, 'lastrowid') else None
+            return cursor.lastrowid
         except Exception as e:
             print(f"Lỗi query: {e}")
-            self.connection.rollback()
             return None
         finally:
             cursor.close()
     
     def fetch_all(self, query, params=None):
-        cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor = self.connection.cursor()
         try:
             if params:
                 cursor.execute(query, params)
             else:
                 cursor.execute(query)
-            return cursor.fetchall()
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
         except Exception as e:
             print(f"Lỗi fetch: {e}")
             return []
@@ -143,13 +126,14 @@ class Database:
             cursor.close()
     
     def fetch_one(self, query, params=None):
-        cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor = self.connection.cursor()
         try:
             if params:
                 cursor.execute(query, params)
             else:
                 cursor.execute(query)
-            return cursor.fetchone()
+            row = cursor.fetchone()
+            return dict(row) if row else None
         except Exception as e:
             print(f"Lỗi fetch: {e}")
             return None
