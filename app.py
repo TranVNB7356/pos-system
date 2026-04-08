@@ -1,7 +1,7 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify
 import os
 from database import Database
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = Flask(__name__)
 db = Database()
@@ -19,7 +19,6 @@ def products_page():
 @app.route('/api/products', methods=['GET'])
 def get_products():
     products = db.fetch_all("SELECT * FROM products ORDER BY id DESC")
-    # Chuyển đổi Decimal sang float để JSON serializable
     for p in products:
         if 'price' in p and p['price']:
             p['price'] = float(p['price'])
@@ -156,7 +155,6 @@ def create_order():
     data = request.json
     order_number = f"DH{datetime.now().strftime('%Y%m%d%H%M%S')}"
     
-    # Tạo đơn hàng
     query = """
         INSERT INTO orders (order_number, customer_id, total_amount, payment_method, status, created_by)
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -170,19 +168,16 @@ def create_order():
         data.get('created_by', 1)
     ))
     
-    # Thêm chi tiết đơn hàng và cập nhật tồn kho
     for item in data['items']:
         db.execute_query("""
             INSERT INTO order_items (order_id, product_id, quantity, price)
             VALUES (%s, %s, %s, %s)
         """, (order_id, item['id'], int(item['quantity']), float(item['price'])))
         
-        # Giảm tồn kho
         db.execute_query("""
             UPDATE products SET stock = stock - %s WHERE id = %s
         """, (int(item['quantity']), item['id']))
     
-    # Cập nhật tổng chi tiêu của khách hàng
     if data.get('customer_id'):
         db.execute_query("""
             UPDATE customers 
@@ -200,12 +195,10 @@ def reports_page():
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    # Tổng quan
     total_products = db.fetch_one("SELECT COUNT(*) as count FROM products")
     total_customers = db.fetch_one("SELECT COUNT(*) as count FROM customers")
     total_orders = db.fetch_one("SELECT COUNT(*) as count FROM orders")
     
-    # Doanh thu hôm nay
     today = datetime.now().date()
     today_revenue = db.fetch_one("""
         SELECT COALESCE(SUM(total_amount), 0) as revenue 
@@ -213,7 +206,6 @@ def get_stats():
         WHERE DATE(created_at) = %s
     """, (today,))
     
-    # Doanh thu tháng này
     this_month = datetime.now().replace(day=1).date()
     month_revenue = db.fetch_one("""
         SELECT COALESCE(SUM(total_amount), 0) as revenue 
@@ -221,7 +213,6 @@ def get_stats():
         WHERE DATE(created_at) >= %s
     """, (this_month,))
     
-    # Lợi nhuận (Doanh thu - Vốn)
     profit_data = db.fetch_one("""
         SELECT 
             COALESCE(SUM(oi.quantity * oi.price), 0) as revenue,
@@ -236,7 +227,6 @@ def get_stats():
     cost = float(profit_data['cost']) if profit_data else 0
     profit = revenue - cost
     
-    # Top sản phẩm bán chạy
     top_products = db.fetch_all("""
         SELECT p.name, SUM(oi.quantity) as total_sold
         FROM order_items oi
@@ -276,7 +266,8 @@ def daily_report():
             r['revenue'] = float(r['revenue'])
     return jsonify(reports)
 
-# ==================== CHẠY APP ====================
+# ==================== CHẠY APP CHO RENDER ====================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    # Render yêu cầu host='0.0.0.0' và debug=False
+    app.run(host='0.0.0.0', port=port, debug=False)
