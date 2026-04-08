@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo - POS System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f3f4f6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            padding: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .header h1 {
+            font-size: 1.3rem;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .stat-sub {
+            font-size: 0.8rem;
+            color: #10b981;
+            margin-top: 8px;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+        
+        .date-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .date-selector button {
+            padding: 8px 16px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .date-selector button.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        .top-products {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .product-name {
+            font-weight: 500;
+        }
+        
+        .product-sold {
+            color: #3b82f6;
+            font-weight: bold;
+        }
+        
+        .profit-highlight {
+            color: #10b981;
+        }
+        
+        .loss-highlight {
+            color: #ef4444;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+            
+            .stat-value {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📈 Báo cáo thống kê</h1>
+        <div class="nav-links">
+            <a href="/">📊 Dashboard</a>
+            <a href="/products">📦 Sản phẩm</a>
+            <a href="/customers">👥 Khách hàng</a>
+            <a href="/reports">📈 Báo cáo</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Thống kê nhanh -->
+        <div class="stats-overview" id="statsOverview">
+            <div class="stat-card">
+                <div class="stat-label">📦 Tổng sản phẩm</div>
+                <div class="stat-value" id="totalProducts">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">👥 Tổng khách hàng</div>
+                <div class="stat-value" id="totalCustomers">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🧾 Tổng đơn hàng</div>
+                <div class="stat-value" id="totalOrders">-</div>
+            </div>
+        </div>
+        
+        <!-- Doanh thu và lợi nhuận -->
+        <div class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-label">💰 Doanh thu hôm nay</div>
+                <div class="stat-value" id="todayRevenue">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">📆 Doanh thu tháng này</div>
+                <div class="stat-value" id="monthRevenue">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">💎 Lợi nhuận tháng này</div>
+                <div class="stat-value" id="profit">-</div>
+                <div class="stat-sub" id="profitMargin">-</div>
+            </div>
+        </div>
+        
+        <!-- Biểu đồ doanh thu -->
+        <div class="chart-container">
+            <div class="chart-title">📊 Doanh thu theo ngày</div>
+            <div class="date-selector">
+                <button onclick="loadDailyReport(7)" id="btn7d">7 ngày qua</button>
+                <button onclick="loadDailyReport(30)" id="btn30d">30 ngày qua</button>
+                <button onclick="loadDailyReport(90)" id="btn90d">90 ngày qua</button>
+            </div>
+            <canvas id="revenueChart" style="max-height: 300px; width: 100%;"></canvas>
+        </div>
+        
+        <!-- Top sản phẩm bán chạy -->
+        <div class="top-products">
+            <div class="chart-title">🏆 Top sản phẩm bán chạy nhất</div>
+            <div id="topProductsList">
+                <div>Đang tải...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let revenueChart = null;
+        
+        async function loadStats() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            
+            document.getElementById('totalProducts').innerText = data.total_products || 0;
+            document.getElementById('totalCustomers').innerText = data.total_customers || 0;
+            document.getElementById('totalOrders').innerText = data.total_orders || 0;
+            document.getElementById('todayRevenue').innerText = formatMoney(data.today_revenue || 0);
+            document.getElementById('monthRevenue').innerText = formatMoney(data.month_revenue || 0);
+            document.getElementById('profit').innerHTML = formatMoney(data.profit || 0);
+            
+            const profitMargin = data.profit_margin || 0;
+            const marginClass = profitMargin >= 0 ? 'profit-highlight' : 'loss-highlight';
+            document.getElementById('profitMargin').innerHTML = `Tỷ suất lợi nhuận: <span class="${marginClass}">${profitMargin.toFixed(1)}%</span>`;
+            
+            // Top sản phẩm
+            if (data.top_products && data.top_products.length > 0) {
+                document.getElementById('topProductsList').innerHTML = data.top_products.map(p => `
+                    <div class="product-item">
+                        <span class="product-name">📦 ${escapeHtml(p.name)}</span>
+                        <span class="product-sold">Đã bán: ${p.total_sold}</span>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('topProductsList').innerHTML = '<div class="empty-state">Chưa có dữ liệu</div>';
+            }
+        }
+        
+        async function loadDailyReport(days) {
+            // Active button
+            document.querySelectorAll('.date-selector button').forEach(btn => btn.classList.remove('active'));
+            if (days === 7) document.getElementById('btn7d').classList.add('active');
+            if (days === 30) document.getElementById('btn30d').classList.add('active');
+            if (days === 90) document.getElementById('btn90d').classList.add('active');
+            
+            const res = await fetch(`/api/reports/daily?days=${days}`);
+            const data = await res.json();
+            
+            const labels = data.map(d => {
+                const date = new Date(d.date);
+                return `${date.getDate()}/${date.getMonth() + 1}`;
+            }).reverse();
+            
+            const revenues = data.map(d => d.revenue || 0).reverse();
+            const orderCounts = data.map(d => d.order_count || 0).reverse();
+            
+            if (revenueChart) {
+                revenueChart.destroy();
+            }
+            
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            revenueChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Doanh thu (VNĐ)',
+                            data: revenues,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Số đơn hàng',
+                            data: orderCounts,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    let value = context.raw;
+                                    if (context.dataset.label === 'Doanh thu (VNĐ)') {
+                                        return label + ': ' + formatMoney(value);
+                                    }
+                                    return label + ': ' + value + ' đơn';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value / 1000).toFixed(0) + 'K';
+                                    return value;
+                                }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Khởi tạo
+        loadStats();
+        loadDailyReport(7);
+    </script>
+</body>
+</html>
