@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>POS System - Bán hàng</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f3f4f6;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            padding: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+            font-size: 0.85rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: #6b7280;
+        }
+
+        /* Products grid */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .product-card:active {
+            transform: scale(0.97);
+        }
+
+        .product-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .product-price {
+            color: #3b82f6;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .product-stock {
+            font-size: 0.7rem;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+
+        /* Cart panel */
+        .cart-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -2px 20px rgba(0,0,0,0.15);
+            padding: 16px;
+            z-index: 1000;
+            max-width: 600px;
+            margin: 0 auto;
+            transition: transform 0.3s;
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .cart-items {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .checkout-btn {
+            width: 100%;
+            padding: 14px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 28px;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+            cursor: pointer;
+            z-index: 100;
+        }
+
+        .customer-select {
+            margin-bottom: 12px;
+        }
+
+        .customer-select select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛍️ POS Bán hàng</h1>
+        <div class="nav-links">
+            <a href="/">🏠 Bán hàng</a>
+            <a href="/products">📦 Sản phẩm</a>
+            <a href="/customers">👥 Khách hàng</a>
+            <a href="/reports">📈 Báo cáo</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="statProducts">-</div>
+                <div class="stat-label">Sản phẩm</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statOrders">-</div>
+                <div class="stat-label">Đơn hôm nay</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statRevenue">-</div>
+                <div class="stat-label">Doanh thu hôm nay</div>
+            </div>
+        </div>
+
+        <div class="products-grid" id="productsGrid">
+            <div class="empty-state">Đang tải sản phẩm...</div>
+        </div>
+    </div>
+
+    <button class="fab" id="cartFab">🛒 <span id="cartCount">0</span></button>
+
+    <div class="cart-panel" id="cartPanel" style="transform: translateY(100%);">
+        <div class="cart-header">
+            <strong>🛒 Giỏ hàng</strong>
+            <button onclick="hideCartPanel()" style="background:none; border:none; font-size:1.2rem;">✕</button>
+        </div>
+        
+        <div class="customer-select">
+            <select id="customerSelect">
+                <option value="">Khách lẻ</option>
+            </select>
+        </div>
+        
+        <div class="cart-items" id="cartItems">
+            <div class="empty-state">Chưa có sản phẩm</div>
+        </div>
+        
+        <div class="cart-total">
+            <span>Tổng cộng:</span>
+            <span id="cartTotal">0đ</span>
+        </div>
+        
+        <button class="checkout-btn" onclick="checkout()">💳 Thanh toán</button>
+    </div>
+
+    <script>
+        let cart = [];
+        let products = [];
+        let customers = [];
+
+        async function loadData() {
+            await loadStats();
+            await loadProducts();
+            await loadCustomers();
+        }
+
+        async function loadStats() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('statProducts').innerText = data.total_products || 0;
+            document.getElementById('statOrders').innerText = data.total_orders || 0;
+            document.getElementById('statRevenue').innerText = formatMoney(data.today_revenue || 0);
+        }
+
+        async function loadProducts() {
+            const res = await fetch('/api/products');
+            products = await res.json();
+            const grid = document.getElementById('productsGrid');
+            
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="empty-state">📭 Chưa có sản phẩm. Hãy thêm sản phẩm trong mục "Sản phẩm"</div>';
+                return;
+            }
+            
+            grid.innerHTML = products.map(p => `
+                <div class="product-card" onclick="addToCart(${p.id}, '${escapeHtml(p.name)}', ${p.price})">
+                    <div class="product-name">${escapeHtml(p.name)}</div>
+                    <div class="product-price">${formatMoney(p.price)}</div>
+                    <div class="product-stock">📦 Kho: ${p.stock}</div>
+                </div>
+            `).join('');
+        }
