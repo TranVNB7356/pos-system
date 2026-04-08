@@ -21,12 +21,12 @@ class Database:
                     port=result.port
                 )
             else:
-                # Local development
+                # Local development - sửa password theo máy bạn
                 self.connection = psycopg2.connect(
                     host='localhost',
                     database='pos_db',
                     user='postgres',
-                    password='your_password'
+                    password='123456'  # Thay bằng mật khẩu PostgreSQL của bạn
                 )
             
             print("✅ Kết nối database thành công!")
@@ -37,7 +37,7 @@ class Database:
     def create_tables(self):
         cursor = self.connection.cursor()
         
-        # Bảng sản phẩm (thêm cost_price, category, barcode)
+        # Bảng sản phẩm
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
@@ -65,7 +65,7 @@ class Database:
             )
         """)
         
-        # Bảng đơn hàng (thêm customer_id)
+        # Bảng đơn hàng
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
@@ -107,66 +107,4 @@ class Database:
                 ('Cà phê sữa', 20000, 10000, 100, 'Đồ uống', 'SP002'),
                 ('Bánh mì thịt', 25000, 15000, 50, 'Đồ ăn', 'SP003'),
                 ('Trà đào', 30000, 18000, 80, 'Đồ uống', 'SP004'),
-                ('Nước ép cam', 35000, 20000, 60, 'Đồ uống', 'SP005'),
-            ]
-            for p in sample_products:
-                cursor.execute("""
-                    INSERT INTO products (name, price, cost_price, stock, category, barcode)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, p)
-        
-        # Thêm khách hàng mẫu
-        cursor.execute("SELECT COUNT(*) FROM customers")
-        if cursor.fetchone()[0] == 0:
-            sample_customers = [
-                ('Nguyễn Văn A', '0987654321', 'a@gmail.com', 'Hà Nội'),
-                ('Trần Thị B', '0978123456', 'b@gmail.com', 'TP HCM'),
-                ('Lê Văn C', '0965111222', 'c@gmail.com', 'Đà Nẵng'),
-            ]
-            for c in sample_customers:
-                cursor.execute("""
-                    INSERT INTO customers (name, phone, email, address)
-                    VALUES (%s, %s, %s, %s)
-                """, c)
-        
-        self.connection.commit()
-        cursor.close()
-
-    def execute_query(self, query, params=None):
-        cursor = self.connection.cursor()
-        try:
-            cursor.execute(query, params or ())
-            self.connection.commit()
-            return cursor.lastrowid if hasattr(cursor, 'lastrowid') else None
-        except Exception as e:
-            print(f"Lỗi query: {e}")
-            self.connection.rollback()
-            return None
-        finally:
-            cursor.close()
-
-    def fetch_all(self, query, params=None):
-        cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        try:
-            cursor.execute(query, params or ())
-            return cursor.fetchall()
-        except Exception as e:
-            print(f"Lỗi fetch: {e}")
-            return []
-        finally:
-            cursor.close()
-
-    def fetch_one(self, query, params=None):
-        cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        try:
-            cursor.execute(query, params or ())
-            return cursor.fetchone()
-        except Exception as e:
-            print(f"Lỗi fetch: {e}")
-            return None
-        finally:
-            cursor.close()
-
-    def close(self):
-        if self.connection:
-            self.connection.close()
+                ('Nước ép cam
