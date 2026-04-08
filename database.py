@@ -9,13 +9,10 @@ class Database:
         self.connect()
     
     def connect(self):
-        """Kết nối đến PostgreSQL database trên Render"""
         try:
-            # Lấy DATABASE_URL từ biến môi trường (Render sẽ tự động set)
             database_url = os.environ.get('DATABASE_URL')
             
             if database_url:
-                # Parse URL connection string
                 result = urlparse(database_url)
                 self.connection = psycopg2.connect(
                     database=result.path[1:],
@@ -25,7 +22,6 @@ class Database:
                     port=result.port
                 )
             else:
-                # Fallback cho local development
                 self.connection = psycopg2.connect(
                     host='localhost',
                     database='pos_db',
@@ -34,13 +30,12 @@ class Database:
                 )
             
             print("✅ Kết nối database PostgreSQL thành công!")
-            self.create_tables()  # Tạo bảng nếu chưa có
+            self.create_tables()
             
         except Exception as e:
             print(f"❌ Lỗi kết nối database: {e}")
     
     def create_tables(self):
-        """Tạo các bảng nếu chưa tồn tại"""
         cursor = self.connection.cursor()
         
         queries = [
@@ -98,7 +93,6 @@ class Database:
         
         self.connection.commit()
         
-        # Thêm dữ liệu mẫu nếu chưa có
         cursor.execute("SELECT * FROM users WHERE username = 'admin'")
         if not cursor.fetchone():
             cursor.execute(
@@ -106,14 +100,12 @@ class Database:
                 ('admin', 'admin123', 'Administrator', 'admin')
             )
         
-        # Thêm categories mẫu
         cursor.execute("SELECT * FROM categories")
         if len(cursor.fetchall()) == 0:
             categories = ['Điện tử', 'Thời trang', 'Thực phẩm']
             for cat in categories:
                 cursor.execute("INSERT INTO categories (name) VALUES (%s)", (cat,))
         
-        # Thêm products mẫu
         cursor.execute("SELECT * FROM products")
         if len(cursor.fetchall()) == 0:
             cursor.execute(
@@ -129,7 +121,6 @@ class Database:
         cursor.close()
     
     def execute_query(self, query, params=None):
-        """Thực thi câu lệnh SQL (INSERT, UPDATE, DELETE)"""
         cursor = self.connection.cursor()
         try:
             if params:
@@ -146,7 +137,6 @@ class Database:
             cursor.close()
     
     def fetch_all(self, query, params=None):
-        """Lấy tất cả dữ liệu"""
         cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         try:
             if params:
@@ -161,7 +151,6 @@ class Database:
             cursor.close()
     
     def fetch_one(self, query, params=None):
-        """Lấy một dòng dữ liệu"""
         cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         try:
             if params:
@@ -176,6 +165,6 @@ class Database:
             cursor.close()
     
     def close(self):
-        """Đóng kết nối"""
         if self.connection:
             self.connection.close()
+EOF
