@@ -20,9 +20,9 @@ def products_page():
 def get_products():
     products = db.fetch_all("SELECT * FROM products ORDER BY id DESC")
     for p in products:
-        if 'price' in p and p['price']:
+        if p.get('price'):
             p['price'] = float(p['price'])
-        if 'cost_price' in p and p['cost_price']:
+        if p.get('cost_price'):
             p['cost_price'] = float(p['cost_price'])
     return jsonify(products)
 
@@ -76,7 +76,7 @@ def customers_page():
 def get_customers():
     customers = db.fetch_all("SELECT * FROM customers ORDER BY total_spent DESC")
     for c in customers:
-        if 'total_spent' in c and c['total_spent']:
+        if c.get('total_spent'):
             c['total_spent'] = float(c['total_spent'])
     return jsonify(customers)
 
@@ -129,9 +129,9 @@ def get_customer_history(customer_id):
         ORDER BY o.created_at DESC
     """, (customer_id,))
     for o in orders:
-        if 'total_amount' in o and o['total_amount']:
+        if o.get('total_amount'):
             o['total_amount'] = float(o['total_amount'])
-        if 'price' in o and o['price']:
+        if o.get('price'):
             o['price'] = float(o['price'])
     return jsonify(orders)
 
@@ -146,7 +146,7 @@ def get_orders():
         LIMIT 50
     """)
     for o in orders:
-        if 'total_amount' in o and o['total_amount']:
+        if o.get('total_amount'):
             o['total_amount'] = float(o['total_amount'])
     return jsonify(orders)
 
@@ -182,7 +182,7 @@ def create_order():
         db.execute_query("""
             UPDATE customers 
             SET total_spent = total_spent + %s,
-                last_purchase = NOW()
+                last_purchase = CURRENT_TIMESTAMP
             WHERE id = %s
         """, (float(data['total_amount']), data['customer_id']))
     
@@ -203,14 +203,14 @@ def get_stats():
     today_revenue = db.fetch_one("""
         SELECT COALESCE(SUM(total_amount), 0) as revenue 
         FROM orders 
-        WHERE DATE(created_at) = %s
+        WHERE DATE(created_at) = DATE(%s)
     """, (today,))
     
     this_month = datetime.now().replace(day=1).date()
     month_revenue = db.fetch_one("""
         SELECT COALESCE(SUM(total_amount), 0) as revenue 
         FROM orders 
-        WHERE DATE(created_at) >= %s
+        WHERE DATE(created_at) >= DATE(%s)
     """, (this_month,))
     
     profit_data = db.fetch_one("""
@@ -220,7 +220,7 @@ def get_stats():
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
         JOIN products p ON oi.product_id = p.id
-        WHERE DATE(o.created_at) >= %s
+        WHERE DATE(o.created_at) >= DATE(%s)
     """, (this_month,))
     
     revenue = float(profit_data['revenue']) if profit_data else 0
@@ -256,18 +256,17 @@ def daily_report():
             COUNT(*) as order_count,
             SUM(total_amount) as revenue
         FROM orders
-        WHERE created_at >= CURRENT_DATE - INTERVAL '%s DAYS'
+        WHERE created_at >= DATE('now', '-%s days')
         GROUP BY DATE(created_at)
         ORDER BY date DESC
     """, (days,))
     
     for r in reports:
-        if 'revenue' in r and r['revenue']:
+        if r.get('revenue'):
             r['revenue'] = float(r['revenue'])
     return jsonify(reports)
 
-# ==================== CHẠY APP CHO RENDER ====================
+# ==================== CHẠY APP ====================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    # Render yêu cầu host='0.0.0.0' và debug=False
     app.run(host='0.0.0.0', port=port, debug=False)
