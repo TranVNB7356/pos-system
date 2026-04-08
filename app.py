@@ -19,6 +19,12 @@ def products_page():
 @app.route('/api/products', methods=['GET'])
 def get_products():
     products = db.fetch_all("SELECT * FROM products ORDER BY id DESC")
+    # Chuyển đổi Decimal sang float để JSON serializable
+    for p in products:
+        if 'price' in p and p['price']:
+            p['price'] = float(p['price'])
+        if 'cost_price' in p and p['cost_price']:
+            p['cost_price'] = float(p['cost_price'])
     return jsonify(products)
 
 @app.route('/api/products', methods=['POST'])
@@ -30,9 +36,9 @@ def add_product():
     """
     product_id = db.execute_query(query, (
         data['name'],
-        data['price'],
-        data['stock'],
-        data.get('cost_price', 0),
+        float(data['price']),
+        int(data['stock']),
+        float(data.get('cost_price', 0)),
         data.get('category', ''),
         data.get('barcode', '')
     ))
@@ -48,9 +54,9 @@ def update_product(product_id):
     """
     db.execute_query(query, (
         data['name'],
-        data['price'],
-        data['stock'],
-        data.get('cost_price', 0),
+        float(data['price']),
+        int(data['stock']),
+        float(data.get('cost_price', 0)),
         data.get('category', ''),
         data.get('barcode', ''),
         product_id
@@ -70,6 +76,9 @@ def customers_page():
 @app.route('/api/customers', methods=['GET'])
 def get_customers():
     customers = db.fetch_all("SELECT * FROM customers ORDER BY total_spent DESC")
+    for c in customers:
+        if 'total_spent' in c and c['total_spent']:
+            c['total_spent'] = float(c['total_spent'])
     return jsonify(customers)
 
 @app.route('/api/customers', methods=['POST'])
@@ -88,6 +97,28 @@ def add_customer():
     ))
     return jsonify({'success': True, 'id': customer_id})
 
+@app.route('/api/customers/<int:customer_id>', methods=['DELETE'])
+def delete_customer(customer_id):
+    db.execute_query("DELETE FROM customers WHERE id=%s", (customer_id,))
+    return jsonify({'success': True})
+
+@app.route('/api/customers/<int:customer_id>', methods=['PUT'])
+def update_customer(customer_id):
+    data = request.json
+    query = """
+        UPDATE customers 
+        SET name=%s, phone=%s, email=%s, address=%s
+        WHERE id=%s
+    """
+    db.execute_query(query, (
+        data['name'],
+        data.get('phone', ''),
+        data.get('email', ''),
+        data.get('address', ''),
+        customer_id
+    ))
+    return jsonify({'success': True})
+
 @app.route('/api/customers/<int:customer_id>/history')
 def get_customer_history(customer_id):
     orders = db.fetch_all("""
@@ -98,6 +129,11 @@ def get_customer_history(customer_id):
         WHERE o.customer_id = %s
         ORDER BY o.created_at DESC
     """, (customer_id,))
+    for o in orders:
+        if 'total_amount' in o and o['total_amount']:
+            o['total_amount'] = float(o['total_amount'])
+        if 'price' in o and o['price']:
+            o['price'] = float(o['price'])
     return jsonify(orders)
 
 # ==================== QUẢN LÝ ĐƠN HÀNG ====================
@@ -110,6 +146,9 @@ def get_orders():
         ORDER BY o.created_at DESC 
         LIMIT 50
     """)
+    for o in orders:
+        if 'total_amount' in o and o['total_amount']:
+            o['total_amount'] = float(o['total_amount'])
     return jsonify(orders)
 
 @app.route('/api/orders', methods=['POST'])
@@ -124,8 +163,8 @@ def create_order():
     """
     order_id = db.execute_query(query, (
         order_number,
-        data.get('customer_id'),
-        data['total_amount'],
+        data.get('customer_id') if data.get('customer_id') else None,
+        float(data['total_amount']),
         data.get('payment_method', 'cash'),
         'completed',
         data.get('created_by', 1)
@@ -136,12 +175,12 @@ def create_order():
         db.execute_query("""
             INSERT INTO order_items (order_id, product_id, quantity, price)
             VALUES (%s, %s, %s, %s)
-        """, (order_id, item['id'], item['quantity'], item['price']))
+        """, (order_id, item['id'], int(item['quantity']), float(item['price'])))
         
         # Giảm tồn kho
         db.execute_query("""
             UPDATE products SET stock = stock - %s WHERE id = %s
-        """, (item['quantity'], item['id']))
+        """, (int(item['quantity']), item['id']))
     
     # Cập nhật tổng chi tiêu của khách hàng
     if data.get('customer_id'):
@@ -150,7 +189,7 @@ def create_order():
             SET total_spent = total_spent + %s,
                 last_purchase = NOW()
             WHERE id = %s
-        """, (data['total_amount'], data['customer_id']))
+        """, (float(data['total_amount']), data['customer_id']))
     
     return jsonify({'success': True, 'order_id': order_id, 'order_number': order_number})
 
@@ -193,8 +232,8 @@ def get_stats():
         WHERE DATE(o.created_at) >= %s
     """, (this_month,))
     
-    revenue = profit_data['revenue'] if profit_data else 0
-    cost = profit_data['cost'] if profit_data else 0
+    revenue = float(profit_data['revenue']) if profit_data else 0
+    cost = float(profit_data['cost']) if profit_data else 0
     profit = revenue - cost
     
     # Top sản phẩm bán chạy
@@ -202,7 +241,7 @@ def get_stats():
         SELECT p.name, SUM(oi.quantity) as total_sold
         FROM order_items oi
         JOIN products p ON oi.product_id = p.id
-        GROUP BY p.id
+        GROUP BY p.id, p.name
         ORDER BY total_sold DESC
         LIMIT 5
     """)
@@ -211,8 +250,8 @@ def get_stats():
         'total_products': total_products['count'] if total_products else 0,
         'total_customers': total_customers['count'] if total_customers else 0,
         'total_orders': total_orders['count'] if total_orders else 0,
-        'today_revenue': today_revenue['revenue'] if today_revenue else 0,
-        'month_revenue': month_revenue['revenue'] if month_revenue else 0,
+        'today_revenue': float(today_revenue['revenue']) if today_revenue else 0,
+        'month_revenue': float(month_revenue['revenue']) if month_revenue else 0,
         'profit': profit,
         'profit_margin': (profit / revenue * 100) if revenue > 0 else 0,
         'top_products': top_products
@@ -227,28 +266,17 @@ def daily_report():
             COUNT(*) as order_count,
             SUM(total_amount) as revenue
         FROM orders
-        WHERE created_at >= DATE_SUB(NOW(), INTERVAL %s DAY)
+        WHERE created_at >= CURRENT_DATE - INTERVAL '%s DAYS'
         GROUP BY DATE(created_at)
         ORDER BY date DESC
     """, (days,))
-    return jsonify(reports)
-
-@app.route('/api/reports/monthly')
-def monthly_report():
-    year = int(request.args.get('year', datetime.now().year))
-    reports = db.fetch_all("""
-        SELECT 
-            DATE_FORMAT(created_at, '%%Y-%%m') as month,
-            COUNT(*) as order_count,
-            SUM(total_amount) as revenue
-        FROM orders
-        WHERE YEAR(created_at) = %s
-        GROUP BY DATE_FORMAT(created_at, '%%Y-%%m')
-        ORDER BY month DESC
-    """, (year,))
+    
+    for r in reports:
+        if 'revenue' in r and r['revenue']:
+            r['revenue'] = float(r['revenue'])
     return jsonify(reports)
 
 # ==================== CHẠY APP ====================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)
