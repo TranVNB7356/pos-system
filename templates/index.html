@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS System - Quản lý bán hàng</title>
+    <!-- Bootstrap 5 + Icons + Fonts -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: #f0f2f8;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
+            height: 100%;
+            background: linear-gradient(145deg, #1e2a5e 0%, #0f172a 100%);
+            box-shadow: 8px 0 25px rgba(0,0,0,0.08);
+            z-index: 1050;
+            overflow-y: auto;
+        }
+        .sidebar-brand {
+            padding: 30px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            margin-bottom: 20px;
+        }
+        .sidebar-brand h3 {
+            color: white;
+            font-weight: 700;
+            font-size: 1.7rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-brand h3 i {
+            font-size: 28px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px;
+            border-radius: 14px;
+        }
+        .sidebar-nav {
+            padding: 0 16px;
+        }
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 18px;
+            margin: 6px 0;
+            color: #e2e8f0;
+            text-decoration: none;
+            border-radius: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
+        .sidebar-nav a.active {
+            background: rgba(99, 102, 241, 0.7);
+            color: white;
+        }
+        .main-content {
+            margin-left: 280px;
+            padding: 28px 32px;
+            min-height: 100vh;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            background: white;
+            padding: 16px 28px;
+            border-radius: 28px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        .page-title {
+            font-weight: 700;
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #1e293b, #2d3a5e);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 28px;
+            padding: 20px 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.02);
+        }
+        .stat-icon {
+            background: #eef2ff;
+            width: 54px;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            margin-bottom: 16px;
+        }
+        .stat-icon i {
+            font-size: 28px;
+            color: #4f46e5;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .btn-gradient {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border: none;
+            color: white;
+            border-radius: 40px;
+            padding: 10px 24px;
+            font-weight: 600;
+        }
+        .table-custom th {
+            background: #f8fafc;
+            padding: 16px 20px;
+            font-weight: 600;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-completed { background: #dcfce7; color: #15803d; }
+        .status-pending { background: #fef9c3; color: #a16207; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <h3><i class="fas fa-cash-register"></i> POS System</h3>
+    </div>
+    <div class="sidebar-nav">
+        <a id="nav-dashboard"><i class="fas fa-chart-pie"></i> Dashboard</a>
+        <a id="nav-products"><i class="fas fa-boxes"></i> Sản phẩm</a>
+        <a id="nav-orders"><i class="fas fa-truck"></i> Đơn hàng</a>
+    </div>
+</div>
+
+<div class="main-content" id="mainContent">
+    <div id="dynamicView">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3">Đang tải...</p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let currentEditId = null;
+
+    function setActiveSidebar(page) {
+        document.querySelectorAll('.sidebar-nav a').forEach(link => link.classList.remove('active'));
+        if (page === 'dashboard') document.getElementById('nav-dashboard').classList.add('active');
+        else if (page === 'products') document.getElementById('nav-products').classList.add('active');
+        else if (page === 'orders') document.getElementById('nav-orders').classList.add('active');
+    }
+
+    async function renderDashboard() {
+        let stats = { total_products: 0, total_orders: 0, today_revenue: 0 };
+        let recentOrders = [];
+        try {
+            const statsRes = await fetch('/api/stats');
+            stats = await statsRes.json();
+        } catch(e) { console.error(e); }
+        try {
+            const ordersRes = await fetch('/api/orders');
+            recentOrders = await ordersRes.json();
+        } catch(e) { console.error(e); }
+
+        const html = `
+            <div class="top-bar">
+                <h1 class="page-title"><i class="fas fa-chart-line me-2"></i>Dashboard</h1>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-cube"></i></div>
+                    <div class="stat-value">${stats.total_products || 0}</div>
+                    <div class="stat-label">Tổng sản phẩm</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-shopping-cart"></i></div>
+                    <div class="stat-value">${stats.total_orders || 0}</div>
+                    <div class="stat-label">Đơn hàng</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-chart-simple"></i></div>
+                    <div class="stat-value">${(stats.today_revenue || 0).toLocaleString('vi-VN')}₫</div>
+                    <div class="stat-label">Doanh thu hôm nay</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header bg-white fw-bold">Đơn hàng gần đây</div>
+                <div class="card-body p-0">
+                    <table class="table table-custom mb-0">
+                        <thead><tr><th>Mã đơn</th><th>Tổng tiền</th><th>Thanh toán</th><th>Thời gian</th></tr></thead>
+                        <tbody>
+                            ${recentOrders.slice(0,5).map(order => `
+                                <tr><td class="fw-semibold">${order.order_number}</td>
+                                <td>${parseInt(order.total_amount).toLocaleString('vi-VN')}₫</td>
+                                <td>${order.payment_method === 'cash' ? '💰 Tiền mặt' : '💳 Chuyển khoản'}</td>
+                                <td>${new Date(order.created_at).toLocaleString('vi-VN')}</td></tr>
+                            `).join('')}
+                            ${recentOrders.length === 0 ? '<tr><td colspan="4" class="text-center">Chưa có đơn hàng</td></tr>' : ''}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        document.getElementById('dynamicView').innerHTML = html;
+    }
+
+    async function renderProducts() {
+        let products = [];
+        try {
+            const res = await fetch('/api/products');
+            products = await res.json();
+        } catch(e) { console.error(e); }
+
+        const html = `
+            <div class="top-bar">
+                <h1 class="page-title"><i class="fas fa-boxes me-2"></i>Quản lý sản phẩm</h1>
+                <button class="btn btn-gradient" id="openAddProductBtn"><i class="fas fa-plus me-1"></i> Thêm sản phẩm</button>
+            </div>
+            <div class="card">
+                <div class="card-body p-0">
+                    <table class="table table-custom mb-0">
+                        <thead><tr><th>ID</th><th>Tên sản phẩm</th><th>Giá (VNĐ)</th><th>Tồn kho</th><th>Danh mục</th><th>Thao tác</th></tr></thead>
+                        <tbody>
+                            ${products.map(prod => `
+                                <tr>
+                                    <td>${prod.id}</td>
+                                    <td class="fw-semibold">${prod.name}</td>
+                                    <td>${parseInt(prod.price).toLocaleString('vi-VN')}₫</td>
+                                    <td><span class="badge bg-light text-dark px-3 py-2 rounded-pill">${prod.stock}</span></td>
+                                    <td>${prod.category_name || 'Chưa phân loại'}</td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm edit-product-btn" data-id="${prod.id}">Sửa</button>
+                                        <button class="btn btn-danger btn-sm delete-product-btn" data-id="${prod.id}">Xóa</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                            ${products.length === 0 ? '<tr><td colspan="6" class="text-center">Chưa có sản phẩm</td></tr>' : ''}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        document.getElementById('dynamicView').innerHTML = html;
+        
+        document.getElementById('openAddProductBtn')?.addEventListener('click', () => {
+            const name = prompt('Tên sản phẩm:');
+            const price = prompt('Giá bán:');
+            const stock = prompt('Tồn kho:');
+            if (name && price) {
+                fetch('/api/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, price: parseInt(price), stock: parseInt(stock) || 0 })
+                }).then(() => renderProducts());
+            }
+        });
+        
+        document.querySelectorAll('.edit-product-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const newName = prompt('Tên mới:');
+                const newPrice = prompt('Giá mới:');
+                if (newName && newPrice) {
+                    await fetch(`/api/products/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName, price: parseInt(newPrice), stock: 0 })
+                    });
+                    renderProducts();
+                }
+            });
+        });
+        
+        document.querySelectorAll('.delete-product-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (confirm('Xóa sản phẩm này?')) {
+                    const id = btn.getAttribute('data-id');
+                    await fetch(`/api/products/${id}`, { method: 'DELETE' });
+                    renderProducts();
+                }
+            });
+        });
+    }
+
+    async function renderOrders() {
+        let orders = [];
+        try {
+            const res = await fetch('/api/orders');
+            orders = await res.json();
+        } catch(e) { console.error(e); }
+
+        const html = `
+            <div class="top-bar">
+                <h1 class="page-title"><i class="fas fa-truck-fast me-2"></i>Quản lý đơn hàng</h1>
+            </div>
+            <div class="card">
+                <div class="card-body p-0">
+                    <table class="table table-custom mb-0">
+                        <thead><tr><th>Mã đơn</th><th>Tổng tiền</th><th>Phương thức</th><th>Trạng thái</th><th>Thời gian</th></tr></thead>
+                        <tbody>
+                            ${orders.map(order => {
+                                let statusClass = '', statusText = '';
+                                if (order.status === 'completed') { statusText = 'Hoàn thành'; statusClass = 'status-completed'; }
+                                else if (order.status === 'pending') { statusText = 'Chờ xử lý'; statusClass = 'status-pending'; }
+                                else { statusText = 'Đã hủy'; statusClass = 'status-cancelled'; }
+                                return `<tr><td class="fw-bold">${order.order_number}</td>
+                                        <td>${parseInt(order.total_amount).toLocaleString('vi-VN')}₫</td>
+                                        <td>${order.payment_method === 'cash' ? '💰 Tiền mặt' : '💳 Chuyển khoản'}</td>
+                                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                                        <td>${new Date(order.created_at).toLocaleString('vi-VN')}</td></tr>`;
+                            }).join('')}
+                            ${orders.length === 0 ? '<tr><td colspan="5" class="text-center">Chưa có đơn hàng</td></tr>' : ''}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        document.getElementById('dynamicView').innerHTML = html;
+    }
+
+    async function navigateTo(page) {
+        setActiveSidebar(page);
+        if (page === 'dashboard') await renderDashboard();
+        else if (page === 'products') await renderProducts();
+        else if (page === 'orders') await renderOrders();
+    }
+
+    document.getElementById('nav-dashboard').addEventListener('click', () => navigateTo('dashboard'));
+    document.getElementById('nav-products').addEventListener('click', () => navigateTo('products'));
+    document.getElementById('nav-orders').addEventListener('click', () => navigateTo('orders'));
+    
+    navigateTo('dashboard');
+</script>
+</body>
+</html>
