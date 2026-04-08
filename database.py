@@ -11,7 +11,6 @@ class Database:
     def connect(self):
         try:
             database_url = os.environ.get('DATABASE_URL')
-            
             if database_url:
                 result = urlparse(database_url)
                 self.connection = psycopg2.connect(
@@ -21,17 +20,10 @@ class Database:
                     host=result.hostname,
                     port=result.port
                 )
+                print("✅ Kết nối database PostgreSQL thành công!")
+                self.create_tables()
             else:
-                self.connection = psycopg2.connect(
-                    host='localhost',
-                    database='pos_db',
-                    user='postgres',
-                    password='your_password'
-                )
-            
-            print("✅ Kết nối database PostgreSQL thành công!")
-            self.create_tables()
-            
+                raise Exception("DATABASE_URL not found")
         except Exception as e:
             print(f"❌ Lỗi kết nối database: {e}")
     
@@ -167,4 +159,3 @@ class Database:
     def close(self):
         if self.connection:
             self.connection.close()
-EOF
